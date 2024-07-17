@@ -1,0 +1,214 @@
+---
+title: "Temporal trends in temperature using fixed intervals"
+author: "david lopez idiaquez"
+date: 01-07-2024
+output: html_document
+---
+
+Code to replicate the analyses in: "Optimal thermal niche-tracking buffers wild great tits against climate change" by David López-Idiáquez*, Ella F Cole, Charlotte E Regan & Ben C Sheldon
+
+*contact:david.lopez-idiaquez[at]biology.ox.ac.uk
+
+        ---------------------   Temporal trends in temperature using a fixed time interval ---------------------   
+Load packages (R version 4.3.1)
+```{r load packages, include=FALSE, message = FALSE}
+library(dplyr) #v. 1.1.3
+library(lmerTest) #v. 3.1-3
+library(lubridate) #v. 1.9.3
+library(tidyr) #v. 1.3.0
+library(confintr) #v. 1.0.2
+```
+
+ ---------------------   Temporal trends in the fixed interval (from February 15 to June 5) ---------------------   
+-Load the climate data [Obtained from: Central England dataset at the Met Office Hadley Centre (https://www.metoffice.gov.uk/hadobs/)]
+```{r}
+##Climate data
+max_min<-read.csv("clim_data.csv")
+#compute mean temperature and julday
+mean_temp<-max_min %>% 
+  mutate(tmean=(max+min)/2) %>% 
+  group_by(year) %>% 
+  mutate(julday=row_number()) %>% 
+  ungroup()
+```
+-Select relevant columns and prepare the interval of interest
+```{r}
+mean_temp2<-mean_temp %>% 
+  select(year, tmean, max, julday)
+#period of interest to compute the yearly average temperatures
+periods<- list(
+  fullper = c(46, 156)) #46 represents the 15th of Feb. 156 represents the 5th of June
+```
+-Loop to compute year mean and se temperature.
+```{r}
+#list to store the results
+avg_temp_results <- list() 
+
+#Loop to collate the mean temperature and se the interval each year.
+for (period_name in names(periods)) {
+  start_day <- periods[[period_name]][1]
+  end_day <- periods[[period_name]][2]
+  
+ 
+  avg_temp <- mean_temp2 %>%
+    filter(julday >= start_day & julday <= end_day) %>%
+    group_by(year) %>%
+    summarize(avg_temp = mean(tmean), #mean
+              se_temp = (sd(tmean)/sqrt(length(tmean)))) #se
+  
+  avg_temp_results[[period_name]] <- avg_temp
+}
+
+#transform into a dataset
+avg_temp_data_frames <- lapply(avg_temp_results, as.data.frame)
+
+combined_data_tmean <- bind_rows(avg_temp_data_frames, .id = "period_name")
+
+yearly_temp_meansse <- combined_data_tmean %>%
+  pivot_wider(names_from = period_name, values_from = c(avg_temp, se_temp))
+
+names <- c("year", "fix_inter_tmean", "fix_inter_tmean_se") #rename columns
+colnames(yearly_temp_meansse)<-names
+```
+-Run the linear model
+```{r}
+#Explore the temporal trends in mean temperature
+mod_tmean1<-lm(fix_inter_tmean~year, data=yearly_temp_meansse)
+summary(mod_tmean1) 
+anova(mod_tmean1)
+confint(mod_tmean1, "year")
+```
+
+---------------------   Temporal trends in biologically relevant intervals  ---------------------
+  #Function to compute the temporal trends in all intervals within two dates
+```{r}
+fit_linear_models_all_intervals_fixed <- function(data, min_window_size, max_window_size, start_day, end_day) {
+  results <- data.frame()  
+  
+  for (window_size in min_window_size:max_window_size) {
+    for (i in start_day:(end_day - window_size + 1)) {
+      window_data <- data %>%
+        filter(julday >= i & julday <= i + window_size - 1)
+      
+      if (nrow(window_data) >= window_size) {
+        
+        window_data <- window_data %>%
+          group_by(year) %>%
+          summarize(Mean_Temperature = mean(tmean, na.rm = TRUE)) 
+        
+        model <- lm(Mean_Temperature ~ year, data = window_data)
+        
+        coef <- coef(model)
+        std_error <- summary(model)$coefficients[, "Std. Error"]
+        p_value <- summary(model)$coefficients[, "Pr(>|t|)"]
+        
+        results <- rbind(results, data.frame(
+          Window_Start = i,
+          Window_End = i + window_size - 1,
+          Window_Size = window_size,
+          Intercept_Coefficient = coef[1],
+          Year_Coefficient = coef[2],
+          Year_Std_Error = std_error[2],
+          Year_P_Value = p_value[2]
+        ))
+      }
+    }
+  }
+  
+  return(results)
+}
+```
+  #Filter the climate dataset to retain the relevant interval, not needed in these analyses
+```{r}
+interval0<-mean_temp2 %>% 
+  select(year, julday, tmean, max) %>% 
+  filter(julday>=46 & julday<=156) #el periodo largo desde el dia que yo identifico, hasta el fin de la reproduccion.
+
+interval<-subset(interval0, year>1964) #quito este año que no entra en mi estudio
+```
+  #Use the function to get the data
+```{r aplicar funcion}
+#Here, I define the window size and the start and end days where to fit this windows. 
+min_window_size <- 8
+max_window_size <- 15
+start_day <- 46
+end_day <- 156
+
+results_interval <- fit_linear_models_all_intervals_fixed(interval, min_window_size, max_window_size, start_day, end_day)
+
+mean(results_interval$Year_Coefficient) #mean trend [0.03042948*59=1.79]
+
+#Coefficients
+Year_Coefficient <- results_interval$Year_Coefficient
+#Sd
+sd_val <- sd(Year_Coefficient)
+#N
+n <- length(Year_Coefficient)
+#se
+se <- sd_val / sqrt(n)
+#tvalue
+t_value <- qt(0.975, df = n-1)
+#95% CI
+CI_lower <- mean(results_interval$Year_Coefficient) - t_value * se #[0.02978222*59=1.757151]
+CI_upper <- mean(results_interval$Year_Coefficient) + t_value * se #[0.03107675*59=1.833528]
+#ci
+list(lower = CI_lower, upper = CI_upper)
+```
+
+---------------------   Explore that the function does what is supposed to do ---------------------   
+a. manually compute trends
+```{r}
+#This is to compare the mean temperatures that I get from the function to those computed manually
+#test1: ten day window between day 62 and day 71
+test1<-interval %>%
+  filter(julday >= 62 & julday <= 71) %>%
+  group_by(year) %>% 
+  summarise(meantmean=mean(tmean)) 
+#model 1
+mod_test1<-lm(meantmean ~ year, data = test1)
+summary(mod_test1) #results form the loop: 0.02428638 ± 0.01477908, p=0.1058275
+                   #results from test: 0.02429 ± 0.01478, p=0.106
+
+#test2: 14 day window between day 83 and day 96
+test2<-interval %>%
+  filter(julday >= 83 & julday <= 96) %>%
+  group_by(year) %>% 
+  summarise(meantmean=mean(tmean)) 
+#model 2
+mod_test2<-lm(meantmean ~ year, data = test2)
+summary(mod_test2) #results form the loop: 0.03765801 ± 0.01227705, p=0.003301003
+                   #results from test: 0.03766 ± 0.01228, p=0.00330
+#The function works gives 
+```
+b. calculate the number of intervals that fit in my window of interest.
+```{r}
+#range of days
+start_day_prueba <- 46
+end_day_prueba <- 156
+
+#interval size
+periods <- c(8, 9, 10, 11, 12, 13, 14, 15)
+
+#count
+total_periods <- 0
+
+# Iterate through each possible starting day
+for (start in start_day_prueba:(end_day_prueba - 1)) {
+  # Check if a valid period can be formed for each length
+  for (period in periods) {
+    if (start + period - 1 <= end_day_prueba) {
+      total_periods <- total_periods + 1
+    }
+  }
+}
+total_periods
+
+#total periods: 804 which are the same obtained with the function.
+```
+
+                  
+
+
+
+
+

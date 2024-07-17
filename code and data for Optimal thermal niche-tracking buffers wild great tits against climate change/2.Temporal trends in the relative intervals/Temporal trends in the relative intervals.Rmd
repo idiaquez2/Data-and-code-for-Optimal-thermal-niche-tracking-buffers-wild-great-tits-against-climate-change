@@ -1,0 +1,299 @@
+---
+title: "Temporal trends in temperature using fixed and relative time intervals"
+author: "david lopez idiaquez"
+date: 
+output: html_document
+---
+
+Code to replicate the analyses in: "Optimal thermal niche-tracking buffers wild great tits against climate change" by David López-Idiáquez*, Ella F Cole, Charlotte E Regan & Ben C Sheldon
+
+*contact:david.lopez-idiaquez[at]biology.ox.ac.uk
+
+                  -------------- Part 2: Temporal trends in the relative intervals -------------- 
+```{r load packages, include=FALSE, message = FALSE}
+library(dplyr) #v 1.1.3
+library(ggplot2) #v 3.4.3
+library(lmerTest) #v 3.1-3
+library(lubridate) #v 1.9.3
+library(tidyr) #v 1.3.0
+```                           
+              
+-Load the climate data
+```{r}
+##Climate data
+max_min<-read.csv("clim_data.csv")
+#compute mean temperature and julday
+mean_temp<-max_min %>% 
+  mutate(tmean=(max+min)/2) %>% 
+  group_by(year) %>% 
+  mutate(julday=row_number()) %>% 
+  ungroup()
+```
+
+-Load Great tit data: Load the breeding data for the great tits. [sample size is different because hatching date is not known for a subset of the samples]
+```{r}
+gtdata_hd <- read.csv("gtdata_hd.csv") #for analyses relative to hatching date (pers 1-4)
+gtdata_ld <- read.csv("gtdata_ld.csv") #for analyses relative to laying date (egg laying)
+```
+
+-Load the functions to compute the temperatures relative to each individual breeding attempt
+```{r}
+#Function to compute temperature values during Incubation (per1)
+compute_average_temperature_per1 <- function(df1, df2) {
+  result <- data.frame()  # Create an empty dataframe
+  
+  for (i in 1:nrow(df1)) {
+    start <- df1$ld_fin3[i]
+    end <- df1$hd3[i]
+    
+    temperatures <- df2[df2$year_jul >= start & df2$year_jul <= end, 'tmean']
+    average_temperature <- mean(temperatures)
+    num_days <- end - start +1
+    
+    result <- rbind(result, data.frame(average_temperature_per1 = average_temperature, Num_Days_per1 = num_days))
+  }
+  
+  return(result)
+}
+
+#Function to compute temperature values during Hatching (per2)
+compute_average_temperature_per2 <- function(df1, df2) {
+  result <- data.frame()  # Create an empty dataframe
+  
+  for (i in 1:nrow(df1)) {
+    start <- df1$hd3[i]
+    end <- (df1$hd3+7)[i]
+    
+    temperatures <- df2[df2$year_jul >= start & df2$year_jul <= end, 'tmean']
+    average_temperature <- mean(temperatures)
+    num_days <- end - start +1
+    
+    result <- rbind(result, data.frame(average_temperature_per2 = average_temperature, Num_Days_per2 = num_days))
+  }
+  
+  return(result)
+}
+
+#Function to compute temperature values during Nestling (per3)
+compute_average_temperature_per3 <- function(df1, df2) {
+  result <- data.frame()  # Create an empty dataframe
+  
+  for (i in 1:nrow(df1)) {
+    start <- (df1$hd3+8)[i]
+    end <- (df1$hd3+15)[i]
+    
+    temperatures <- df2[df2$year_jul >= start & df2$year_jul <= end, 'tmean']
+    average_temperature <- mean(temperatures)
+    num_days <- end - start +1
+    
+    result <- rbind(result, data.frame(average_temperature_per3 = average_temperature, Num_Days_per3 = num_days))
+  }
+  
+  return(result)
+}
+
+#Function to compute temperature values during Fledgling (per4)
+compute_average_temperature_per4 <- function(df1, df2) {
+  result <- data.frame()  # Create an empty dataframe
+  
+  for (i in 1:nrow(df1)) {
+    start <- (df1$hd3+16)[i]
+    end <- (df1$hd3+23)[i]
+    
+    temperatures <- df2[df2$year_jul >= start & df2$year_jul <= end, 'tmean']
+    average_temperature <- mean(temperatures)
+    num_days <- end - start +1
+    
+    result <- rbind(result, data.frame(average_temperature_per4 = average_temperature, Num_Days_per4 = num_days))
+  }
+  
+  return(result)
+}
+
+#Function to compute temperature values during Egg-laying
+compute_average_temperature_laying <- function(df1, df2) {
+  result <- data.frame()  # Create an empty dataframe
+  
+  for (i in 1:nrow(df1)) {
+    start <- df1$ld3[i]
+    end <- (df1$ld_fin3)[i]
+    
+    temperatures <- df2[df2$year_jul >= start & df2$year_jul <= end, 'tmean']
+    average_temperature <- mean(temperatures)
+    num_days <- end - start +1
+    
+    result <- rbind(result, data.frame(average_temperature_laying = average_temperature, Num_Days_laying = num_days))
+  }
+  
+  return(result)
+}
+```
+
+-Apply the functions to compute the relative temperatures. First I do it for pers 1 to 4. As they are somehow relative to hatching date.
+Calculate max temperatures and mean temperatures for per1 - per4
+```{r}
+gtdata_hd2<-gtdata_hd %>% 
+  mutate(ld=April_lay_date+90) %>%  #I transform April lay date to annual Julian date so numbers are comparable to the ones present in the climate data set
+  mutate(hd=April_hatch_date+90) %>% 
+  mutate(ld_fin=ld+Clutch_size-1) %>%  #End of laying assuming one egg per day
+  mutate(inc=hd-ld_fin) 
+
+            #### Per. 1 - Incubation (end of laying to hatching date) ####
+
+mean_temp$julday2<-formatC(mean_temp$julday, flag=0, width=3) #I do this to convert 1 into 001 so when I paste it with year all have the same size and are equal to the code that i have in gtdata_hd2 (ld_fin3)
+mean_temp$year_jul<-as.numeric(paste(mean_temp$year, mean_temp$julday2, sep=""))
+
+gtdata_hd2$ld_fin2<-formatC(gtdata_hd2$ld_fin, flag=0, width=3)
+gtdata_hd2$ld_fin3<-as.numeric(paste(gtdata_hd2$year, gtdata_hd2$ld_fin2, sep=""))
+gtdata_hd2$hd2<-formatC(gtdata_hd2$hd, flag=0, width=3)
+gtdata_hd2$hd3<-as.numeric(paste(gtdata_hd2$year, gtdata_hd2$hd2, sep="")) 
+
+gtdata_hd2<-gtdata_hd2 %>% 
+  mutate(observation = 1:n()) #To join results after
+
+mean_temp<-as.data.frame(mean_temp)
+
+#Apply the function
+bbdd_tm<-as.data.frame(compute_average_temperature_per1(gtdata_hd2, mean_temp))
+
+bbdd_tm<-bbdd_tm %>% 
+  mutate(observation = 1:n())
+
+#I join the output of the dataset with my dataset
+gtdata_hd2<-left_join (gtdata_hd2, bbdd_tm, by="observation") 
+
+##Test that the function does what is supposed to do: checking box B84, year 1965
+test1<-mean_temp %>% 
+  filter(year_jul>= 1965120 & year_jul<=1965135) %>% 
+  mutate(meant=mean(tmean)) #manual tmean=12.3375 #tmean from the loop=12.3375 
+
+            #### Per. 2 - Hatching (hatch day to Day 7 post hatch) ####
+
+bbdd_per2<-as.data.frame(compute_average_temperature_per2(gtdata_hd2, mean_temp))
+
+bbdd_per2<-bbdd_per2 %>% 
+  mutate(observation = 1:n())
+
+gtdata_hd2<-left_join (gtdata_hd2, bbdd_per2, by="observation") 
+
+##Test that the function does what is supposed to do: checking box MP98, year 2023
+test2<-mean_temp %>% 
+  filter(year_jul>= 2023129 & year_jul<=2023129+7) %>% 
+  mutate(meant=mean(tmean)) #manual temperature: 11.90625 temperature from loop:11.90625
+
+
+            #### Per. 3 - Nestling (hatch day + 8 to Day 15 post hatch) ####
+
+bbdd_per3<-as.data.frame(compute_average_temperature_per3(gtdata_hd2, mean_temp))
+
+bbdd_per3<-bbdd_per3 %>% 
+  mutate(observation = 1:n())
+
+gtdata_hd2<-left_join (gtdata_hd2, bbdd_per3, by="observation") 
+
+##Test that the function does what is supposed to do: checking box C151, year 2000
+test3<-mean_temp %>% 
+  filter(year_jul>= 2000145+8 & year_jul<=2000145+15) %>% 
+  mutate(meant=mean(tmean)) #manual temperature: 13.55625 temperature from loop:13.55625
+
+            #### Per. 4 - Fledgling (hatch day + 16 to Day 23 post hatch) #####
+
+bbdd_per4<-as.data.frame(compute_average_temperature_per4(gtdata_hd2, mean_temp))
+
+bbdd_per4<-bbdd_per4 %>% 
+  mutate(observation = 1:n())
+
+gtdata_hd2<-left_join (gtdata_hd2, bbdd_per4, by="observation") 
+
+##Test that the function does what is supposed to do: checking box O46, year 1988
+test4<-mean_temp %>% 
+  filter(year_jul>= 1988143+16 & year_jul<=1988143+23) %>% 
+  mutate(meant=mean(tmean)) #manual temperature: 13.21875 temperature from loop:13.21875
+
+```
+
+-Second I do it for egg-laying. This is relative to laying date. 
+Then I compute what happens during laying (LD - LD+CS). Here, I assume that they lay one egg per day
+```{r}
+gtdata_ld2<-gtdata_ld %>% 
+  mutate(ld=April_lay_date+90) %>%  #I transform April lay date to annual Jualian lay date so numbers are comparable to the ones present in the climate dataset
+  mutate(ld_fin=ld+Clutch_size-1) #end of laying
+
+gtdata_ld2<-gtdata_ld2 %>% 
+  mutate(observation = 1:n())
+
+mean_temp<-as.data.frame(mean_temp)
+
+gtdata_ld2$ld2<-formatC(gtdata_ld2$ld, flag=0, width=3)
+gtdata_ld2$ld_fin2<-formatC(gtdata_ld2$ld_fin, flag=0, width=3)
+gtdata_ld2$ld3<-as.numeric(paste(gtdata_ld2$year, gtdata_ld2$ld2, sep=""))
+gtdata_ld2$ld_fin3<-as.numeric(paste(gtdata_ld2$year, gtdata_ld2$ld_fin2, sep=""))
+
+#apply function
+bbdd_laying_ind<-as.data.frame(compute_average_temperature_laying(gtdata_ld2, mean_temp))
+
+bbdd_laying_ind<-bbdd_laying_ind %>% 
+  mutate(observation = 1:n())
+
+#I join the output of the dataset with my dataset (ld_avg2)
+gtdata_ld2<-left_join (gtdata_ld2, bbdd_laying_ind, by="observation") 
+
+##Test that the function does what is supposed to do: checking box Ex18, year 2010
+test5<-mean_temp %>% 
+  filter(year_jul>= 2010108  & year_jul<=2010118) %>% 
+  mutate(meant=mean(tmean)) #manual temperature: 9.713636 temperature from loop:9.713636
+```
+
+-Compute temporal trends in the relative periods
+modelos temperatura media
+```{r}
+gtdata_hd2$year_cat<-as.factor(gtdata_hd2$year) #year as a categorical variable
+gtdata_ld2$year_cat<-as.factor(gtdata_ld2$year) #year as a categorical variable
+
+#egg-laying
+mod_tmean_laying<-lmer(average_temperature_laying~year+(1|year_cat)+(1|Mother), data=gtdata_ld2)
+summary(mod_tmean_laying) 
+anova(mod_tmean_laying, type=3)
+confint(mod_tmean_laying, "year") 
+
+#incubation
+mod_tmean_per1<-lmer(average_temperature_per1~year+(1|year_cat)+(1|Mother), data=gtdata_hd2)
+summary(mod_tmean_per1)
+anova(mod_tmean_per1, type=3)
+confint(mod_tmean_per1, "year") 
+
+#hatching
+mod_tmean_per2<-lmer(average_temperature_per2~year+(1|year_cat)+(1|Mother), data=gtdata_hd2)
+summary(mod_tmean_per2)
+anova(mod_tmean_per2, type=3)
+confint(mod_tmean_per2, "year")
+
+#nestling
+mod_tmean_per3<-lmer(average_temperature_per3~year+(1|year_cat)+(1|Mother), data=gtdata_hd2)
+summary(mod_tmean_per3) 
+anova(mod_tmean_per3, type=3)
+confint(mod_tmean_per3, "year")
+
+#fledging
+mod_tmean_per4<-lmer(average_temperature_per4~year+(1|year_cat)+(1|Mother), data=gtdata_hd2)
+summary(mod_tmean_per4)
+anova(mod_tmean_per4, type=3)
+confint(mod_tmean_per4, "year")
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

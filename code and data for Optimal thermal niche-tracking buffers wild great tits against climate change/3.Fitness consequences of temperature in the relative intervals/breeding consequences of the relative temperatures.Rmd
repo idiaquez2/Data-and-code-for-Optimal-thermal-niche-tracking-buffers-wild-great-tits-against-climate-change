@@ -1,0 +1,654 @@
+---
+title: "breeding consequences of the relative temperatures"
+author: "david lopez idiaquez"
+date: "2024-06-21"
+output: html_document
+---
+Code to replicate the analyses in: "Optimal thermal niche-tracking buffers wild great tits against climate change" by David López-Idiáquez*, Ella F Cole, Charlotte E Regan & Ben C Sheldon
+
+*contact:david.lopez-idiaquez[at]biology.ox.ac.uk
+
+                 --------- Part 3: Linking temperature in the relative periods and reproductive success  --------- 
+
+Load packages
+```{r pacakges}
+library(dplyr) #v. 1.1.3
+library(lmerTest) #v. 3.1-3
+library(lubridate) #v. 1.9.3
+library(tidyr) #v. 1.3.0
+library(glmmTMB) #v. 1.1.7
+library(MCMCglmm) #v. 2.35
+library(brms) #2.20.4
+```
+
+Load data
+```{r}
+join_data4 <- read.csv("join_data4.csv")
+```
+
+                                       #### -Hurdle models with the number of fledglings - ####
+#prepare data for egg-laying                
+```{r}
+tem_lay<-join_data4 %>% #filter the data for these analyses
+select(box, year, ld, Clutch_size, average_temperature_laying, Num_fledglings, Num_chicks, num_neighbors, Mother)
+
+tem_lay$year<-as.factor(tem_lay$year)
+tem_lay$ld<-as.numeric(tem_lay$ld)
+tem_lay$Clutch_size<-as.numeric(tem_lay$Clutch_size)
+tem_lay$Num_fledglings<-as.numeric(tem_lay$Num_fledglings)
+tem_lay$Num_chicks<-as.numeric(tem_lay$Num_chicks)
+tem_lay$num_neighbors<-as.numeric(tem_lay$num_neighbors)
+tem_lay$Mother<-as.factor(tem_lay$Mother)
+tem_lay<-as.data.frame(tem_lay)
+```
+
+#Model egg-laying number of fledgling
+```{r}
+#Temperature mean
+bbdd_temp_laying_nf_temp<-tem_lay %>% 
+  select(box, year, ld, Num_fledglings, Clutch_size, average_temperature_laying, Mother, num_neighbors) %>% 
+  na.omit() 
+
+bbdd_temp_laying_nf_temp<-as.data.frame(bbdd_temp_laying_nf_temp)
+
+mod1_lay_nf_mtemp<-glmmTMB(Num_fledglings~
+                             
+                             scale(average_temperature_laying)+scale(I(average_temperature_laying^2))+
+                             
+                             scale(ld)+scale(num_neighbors)+
+                       
+                             (1|year)+(1|Mother), data=bbdd_temp_laying_nf_temp, 
+                     
+                             ziformula=~., family = "poisson")
+summary(mod1_lay_nf_mtemp)
+```
+
+#prepare data for incubation (per1)
+```{r}
+tem_inc<-join_data4 %>% 
+  select(box, year, ld, Clutch_size, average_temperature_per1, Num_fledglings, Num_chicks, num_neighbors, Mother)
+
+tem_inc$year<-as.factor(tem_inc$year)
+tem_inc$ld<-as.numeric(tem_inc$ld)
+tem_inc$Clutch_size<-as.numeric(tem_inc$Clutch_size)
+tem_inc$Num_fledglings<-as.numeric(tem_inc$Num_fledglings)
+tem_inc$Num_chicks<-as.numeric(tem_inc$Num_chicks)
+tem_inc$num_neighbors<-as.numeric(tem_inc$num_neighbors)
+tem_inc$Mother<-as.factor(tem_inc$Mother)
+
+tem_inc<-as.data.frame(tem_inc)
+```
+
+#Model incubation number of fledgling
+```{r}
+bbdd_temp_per1_nf_temp<-tem_inc %>% 
+  select(box, year, ld, Num_fledglings, Clutch_size, average_temperature_per1, Mother, num_neighbors) %>% 
+  na.omit() 
+
+bbdd_temp_per1_nf_temp<-as.data.frame(bbdd_temp_per1_nf_temp)
+
+mod1_per1_nf_mtemp<-glmmTMB(Num_fledglings~
+                              scale(average_temperature_per1)+scale(I(average_temperature_per1^2))+
+                             
+                             scale(ld)+scale(num_neighbors)+
+                       
+                             (1|year)+(1|Mother), data=bbdd_temp_per1_nf_temp, 
+                     
+                             ziformula=~., family = "poisson")
+
+summary(mod1_per1_nf_mtemp)
+```
+
+#prepare data for hatching (per2)
+```{r}
+tem_per2<-join_data4 %>% 
+  select(box, year, ld, Clutch_size, average_temperature_per2, Num_fledglings, Num_chicks, num_neighbors, Mother)
+
+tem_per2$year<-as.factor(tem_per2$year)
+tem_per2$ld<-as.numeric(tem_per2$ld)
+tem_per2$Clutch_size<-as.numeric(tem_per2$Clutch_size)
+tem_per2$Num_fledglings<-as.numeric(tem_per2$Num_fledglings)
+tem_per2$Num_chicks<-as.numeric(tem_per2$Num_chicks)
+tem_per2$num_neighbors<-as.numeric(tem_per2$num_neighbors)
+tem_per2$Mother<-as.factor(tem_per2$Mother)
+
+tem_per2<-as.data.frame(tem_per2)
+```
+
+#Model hatching number of fledglings
+```{r}
+#Mean temperature
+bbdd_m_temp_per2_nf<-tem_per2 %>% 
+  select(box, year, ld, Clutch_size, Num_fledglings, average_temperature_per2, num_neighbors, Mother) %>% 
+  na.omit() 
+  
+bbdd_m_temp_per2_nf<-as.data.frame(bbdd_m_temp_per2_nf)
+
+mod1_per2_nf_mtemp<-glmmTMB(Num_fledglings~
+                             
+                             scale(average_temperature_per2)+scale(I(average_temperature_per2^2))+
+                             
+                             scale(ld)+scale(num_neighbors)+
+                       
+                             (1|year)+(1|Mother), data=bbdd_m_temp_per2_nf, 
+                     
+                             ziformula=~., family = "poisson")
+
+summary(mod1_per2_nf_mtemp)
+```
+
+#prepare data for nestling (per3)
+```{r}
+tem_per3<-join_data4 %>% 
+  select(box, year, ld, Clutch_size, average_temperature_per3, Num_fledglings, Num_chicks, num_neighbors, Mother)
+
+tem_per3$year<-as.factor(tem_per3$year)
+tem_per3$ld<-as.numeric(tem_per3$ld)
+tem_per3$Clutch_size<-as.numeric(tem_per3$Clutch_size)
+tem_per3$Num_fledglings<-as.numeric(tem_per3$Num_fledglings)
+tem_per3$Num_chicks<-as.numeric(tem_per3$Num_chicks)
+tem_per3$num_neighbors<-as.numeric(tem_per3$num_neighbors)
+tem_per3$Mother<-as.factor(tem_per3$Mother)
+
+tem_per3<-as.data.frame(tem_per3)
+``` 
+
+#Model nestling number of fledglings
+```{r}
+#Mean temperature
+bbdd_m_temp_per3_nf<-tem_per3 %>% 
+  select(box, year, ld, Clutch_size, Num_fledglings, average_temperature_per3, num_neighbors, Mother) %>% 
+  na.omit() 
+  
+bbdd_m_temp_per3_nf<-as.data.frame(bbdd_m_temp_per3_nf)
+
+mod1_per3_nf_mtemp<-glmmTMB(Num_fledglings~
+                              scale(average_temperature_per3)+scale(I(average_temperature_per3^2))+
+                             
+                             scale(ld)+scale(num_neighbors)+
+                       
+                             (1|year)+(1|Mother), data=bbdd_m_temp_per3_nf, 
+                     
+                             ziformula=~., family = "poisson")
+
+summary(mod1_per3_nf_mtemp)
+```
+
+#prepare data for fledgling (per4)
+```{r}
+tem_per4<-join_data4 %>% 
+  select(box, year, ld, Clutch_size, average_temperature_per4, Num_fledglings, Num_chicks, num_neighbors, Mother)
+
+tem_per4$year<-as.factor(tem_per4$year)
+tem_per4$ld<-as.numeric(tem_per4$ld)
+tem_per4$Clutch_size<-as.numeric(tem_per4$Clutch_size)
+tem_per4$Num_fledglings<-as.numeric(tem_per4$Num_fledglings)
+tem_per4$Num_chicks<-as.numeric(tem_per4$Num_chicks)
+tem_per4$num_neighbors<-as.numeric(tem_per4$num_neighbors)
+tem_per4$Mother<-as.factor(tem_per4$Mother)
+
+tem_per4<-as.data.frame(tem_per4)
+``` 
+
+#Model fledgling number of fledgling 
+```{r}
+#Mean temperature
+bbdd_m_temp_per4_nf<-tem_per4 %>% 
+  select(box, year, ld, Clutch_size, Num_fledglings, average_temperature_per4, num_neighbors, Mother) %>% 
+  na.omit() 
+  
+bbdd_m_temp_per4_nf<-as.data.frame(bbdd_m_temp_per4_nf)
+
+mod1_per4_nf_mtemp<-glmmTMB(Num_fledglings~ scale(average_temperature_per4)+scale(I(average_temperature_per4^2))+
+                             
+                             scale(ld)+scale(num_neighbors)+
+                       
+                             (1|year)+(1|Mother), data=bbdd_m_temp_per4_nf, 
+                     
+                             ziformula=~., family = "poisson")
+
+summary(mod1_per4_nf_mtemp)
+```
+
+                                              #### -GLMM models with fledgling success - ####
+#Model temp egg laying fledgling success
+```{r}
+bbdd_m_temp_laying_fs<-tem_lay %>% 
+  select(box, year, ld, Clutch_size, Num_fledglings, average_temperature_laying, num_neighbors, Mother) %>% 
+  na.omit()
+
+bbdd_m_temp_laying_fs$year<-as.factor(bbdd_m_temp_laying_fs$year)
+
+mod1_m_temp_laying_fs<-glmer(cbind(Num_fledglings, (Clutch_size-Num_fledglings))~
+                             scale(average_temperature_laying)+scale(I(average_temperature_laying^2))+
+                             
+                             scale(ld)+scale(Clutch_size)+scale(num_neighbors)+
+                             
+                             (1|year)+(1|Mother), 
+                             
+                             family="binomial", 
+                             data=bbdd_m_temp_laying_fs)
+
+summary(mod1_m_temp_laying_fs)
+```
+
+#Model temp incubation fledgling success
+```{r}
+bbdd_m_temp_per1_fs<-tem_inc %>% 
+  select(box, year, ld, Clutch_size, Num_fledglings, average_temperature_per1, num_neighbors, Mother) %>% 
+  na.omit()
+
+bbdd_m_temp_per1_fs$year<-as.factor(bbdd_m_temp_per1_fs$year)
+
+mod1_m_temp_per1_fs<-glmer(cbind(Num_fledglings, (Clutch_size-Num_fledglings))~
+                             scale(average_temperature_per1)+scale(I(average_temperature_per1^2))+
+                             
+                             scale(ld)+scale(Clutch_size)+scale(num_neighbors)+
+                             
+                             (1|year)+(1|Mother), 
+                             
+                             family="binomial", 
+                             data=bbdd_m_temp_per1_fs)
+
+summary(mod1_m_temp_per1_fs)
+```
+
+#Model temp hatching fledgling success
+```{r}
+bbdd_m_temp_per2_fs<-tem_per2 %>% 
+  select(box, year, ld, Clutch_size, Num_fledglings, average_temperature_per2, num_neighbors, Mother) %>% 
+  na.omit() 
+
+bbdd_m_temp_per2_fs$year<-as.factor(bbdd_m_temp_per2_fs$year)
+
+mod1_m_temp_per2_fs<-glmer(cbind(Num_fledglings, (Clutch_size-Num_fledglings))~
+                             scale(average_temperature_per2)+scale(I(average_temperature_per2^2))+
+                             
+                             scale(ld)+scale(Clutch_size)+scale(num_neighbors)+
+                             
+                             (1|year)+(1|Mother), 
+                             
+                             family="binomial", 
+                             data=bbdd_m_temp_per2_fs)
+
+summary(mod1_m_temp_per2_fs)
+```
+
+#Model temp nestling fledgling success                                              
+```{r}
+bbdd_m_temp_per3_fs<-tem_per3 %>% 
+  select(box, year, ld, Clutch_size, Num_fledglings, average_temperature_per3, num_neighbors, Mother) %>% 
+  na.omit()
+
+bbdd_m_temp_per3_fs$year<-as.factor(bbdd_m_temp_per3_fs$year)
+
+mod1_m_temp_per3_fs<-glmer(cbind(Num_fledglings, (Clutch_size-Num_fledglings))~
+                             scale(average_temperature_per3)+scale(I(average_temperature_per3^2))+
+                             
+                             scale(ld)+scale(Clutch_size)+scale(num_neighbors)+
+                             
+                             (1|year)+(1|Mother), 
+                             
+                             family="binomial", 
+                             data=bbdd_m_temp_per3_fs)
+
+summary(mod1_m_temp_per3_fs)
+```                                        
+
+#Model temp fledgling fledgling success                                              
+```{r temperature at laying effects on FS}
+bbdd_m_temp_per4_fs<-tem_per4 %>% 
+  select(box, year, ld, Clutch_size, Num_fledglings, average_temperature_per4, num_neighbors, Mother) %>% 
+  na.omit()
+
+bbdd_m_temp_per4_fs$year<-as.factor(bbdd_m_temp_per4_fs$year)
+
+mod1_m_temp_per4_fs<-glmer(cbind(Num_fledglings, (Clutch_size-Num_fledglings))~
+                             scale(average_temperature_per4)+scale(I(average_temperature_per4^2))+
+                             
+                             scale(ld)+scale(Clutch_size)+scale(num_neighbors)+
+                             
+                             (1|year)+(1|Mother), 
+                             
+                             family="binomial", 
+                             data=bbdd_m_temp_per4_fs)
+
+summary(mod1_m_temp_per4_fs)
+```                                              
+                                              
+-Bayesian models: requiered to get the median optimal temperatures that maximise breeding success and their associated 95%CIs. For further information see SM-3.
+
+Fledgling success
+```{r}
+bbdd_m_temp_laying_fs$Clutch_size<-as.integer(bbdd_m_temp_laying_fs$Clutch_size)
+bbdd_m_temp_laying_fs$Num_fledglings<-as.integer(bbdd_m_temp_laying_fs$Num_fledglings)
+                                              
+#laying
+mod_lay_fs<-brm(Num_fledglings | trials(Clutch_size) ~ (average_temperature_laying)+(I(average_temperature_laying^2))+
+           (ld)+(Clutch_size)+(num_neighbors)+(1|year)+(1|Mother),
+  family = binomial("logit"),
+  data = bbdd_m_temp_laying_fs,
+  chains = 4,
+  cores = 4,
+  iter = 10000,
+  warmup = 2000,
+  thin = 10)
+
+print(mod_lay_fs, digits=3)  
+#saving the model output is recommended as they take some time to run.
+
+#per1
+mod_per1_fs<-brm(Num_fledglings | trials(Clutch_size) ~ (average_temperature_per1)+(I(average_temperature_per1^2))+
+           (ld)+(Clutch_size)+(num_neighbors)+(1|year)+(1|Mother),
+  family = binomial("logit"),
+  data = bbdd_m_temp_per1_fs,
+  chains = 4,
+  cores = 4,
+  iter = 10000,
+  warmup = 2000,
+  thin = 10)
+
+print(mod_per1_fs, digits=3)  
+
+#per2
+mod_per2_fs<-brm(Num_fledglings | trials(Clutch_size) ~ (average_temperature_per2)+(I(average_temperature_per2^2))+
+           (ld)+(Clutch_size)+(num_neighbors)+(1|year)+(1|Mother),
+  family = binomial("logit"),
+  data = bbdd_m_temp_per2_fs,
+  chains = 4,
+  cores = 4,
+  iter = 10000,
+  warmup = 2000,
+  thin = 10)
+
+print(mod_per2_fs, digits=3)  
+
+#per3
+mod_per3_fs<-brm(Num_fledglings | trials(Clutch_size) ~ (average_temperature_per3)+(I(average_temperature_per3^2))+
+           (ld)+(Clutch_size)+(num_neighbors)+(1|year)+(1|Mother),
+  family = binomial("logit"),
+  data = bbdd_m_temp_per3_fs,
+  chains = 4,
+  cores = 4,
+  iter = 10000,
+  warmup = 2000,
+  thin = 10)
+
+print(mod_per3_fs, digits=3)
+
+#per4
+mod_per4_fs<-brm(Num_fledglings | trials(Clutch_size) ~ (average_temperature_per4)+(I(average_temperature_per4^2))+
+           (ld)+(Clutch_size)+(num_neighbors)+(1|year)+(1|Mother),
+  family = binomial("logit"),
+  data = bbdd_m_temp_per4_fs,
+  chains = 4,
+  cores = 4,
+  iter = 10000,
+  warmup = 2000,
+  thin = 10)
+
+print(mod_per4_fs, digits=3)
+
+```
+
+#Number of fledglings - Probability of brood failure
+```{r}
+#egg-laying
+bbdd_temp_laying_nf_temp <- bbdd_temp_laying_nf_temp %>%
+  mutate(Num_fledglings_code = case_when(
+    Num_fledglings == 0 ~ 1,    
+    Num_fledglings > 0 ~ 0,     
+    TRUE ~ Num_fledglings       
+  ))
+
+bbdd_temp_laying_nf_temp<-as.data.frame(bbdd_temp_laying_nf_temp)
+bbdd_temp_laying_nf_temp$Num_fledglings_code<-as.factor(bbdd_temp_laying_nf_temp$Num_fledglings_code)
+
+mod_lay_nf_code<-brm(Num_fledglings_code ~ (average_temperature_laying)+(I(average_temperature_laying^2))+
+           (ld)+(num_neighbors)+(1|year)+(1|Mother),
+  family = bernoulli,
+  data = bbdd_temp_laying_nf_temp,
+  chains = 4,
+  cores = 4,
+  iter = 10000,
+  warmup = 2000,
+  thin = 10)
+
+print(mod_lay_nf_code, digits=3)
+
+#Incubation
+bbdd_temp_per1_nf_temp <- bbdd_temp_per1_nf_temp %>%
+  mutate(Num_fledglings_code = case_when(
+    Num_fledglings == 0 ~ 1,    
+    Num_fledglings > 0 ~ 0,     
+    TRUE ~ Num_fledglings       
+  ))
+
+bbdd_temp_per1_nf_temp<-as.data.frame(bbdd_temp_per1_nf_temp)
+
+mod_per1_nf_code<-brm(Num_fledglings_code ~ (average_temperature_per1)+(I(average_temperature_per1^2))+
+           (ld)+(num_neighbors)+(1|year)+(1|Mother),
+  family = bernoulli,
+  data = bbdd_temp_per1_nf_temp,
+  chains = 4,
+  cores = 4,
+  iter = 10000,
+  warmup = 2000,
+  thin = 10)
+
+print(mod_per1_nf_code, digits=3) 
+
+#Hatching
+bbdd_m_temp_per2_nf <- bbdd_m_temp_per2_nf %>%
+  mutate(Num_fledglings_code = case_when(
+    Num_fledglings == 0 ~ 1,    
+    Num_fledglings > 0 ~ 0,     
+    TRUE ~ Num_fledglings       
+  ))
+
+bbdd_m_temp_per2_nf<-as.data.frame(bbdd_m_temp_per2_nf)
+
+mod_per2_nf_code<-brm(Num_fledglings_code ~ (average_temperature_per2)+(I(average_temperature_per2^2))+
+           (ld)+(num_neighbors)+(1|year)+(1|Mother),
+  family = bernoulli,
+  data = bbdd_m_temp_per2_nf,
+  chains = 4,
+  cores = 4,
+  iter = 10000,
+  warmup = 2000,
+  thin = 10)
+
+print(mod_per2_nf_code, digits=3) 
+
+#Nestling
+bbdd_m_temp_per3_nf <- bbdd_m_temp_per3_nf %>%
+  mutate(Num_fledglings_code = case_when(
+    Num_fledglings == 0 ~ 1,    
+    Num_fledglings > 0 ~ 0,     
+    TRUE ~ Num_fledglings       
+  ))
+
+bbdd_m_temp_per3_nf<-as.data.frame(bbdd_m_temp_per3_nf)
+
+mod_per3_nf_code<-brm(Num_fledglings_code ~ (average_temperature_per3)+(I(average_temperature_per3^2))+
+           (ld)+(num_neighbors)+(1|year)+(1|Mother),
+  family = bernoulli,
+  data = bbdd_m_temp_per3_nf,
+  chains = 4,
+  cores = 4,
+  iter = 10000,
+  warmup = 2000,
+  thin = 10)
+
+print(mod_per3_nf_code, digits=3)
+
+#Fledging
+bbdd_m_temp_per4_nf <- bbdd_m_temp_per4_nf %>%
+  mutate(Num_fledglings_code = case_when(
+    Num_fledglings == 0 ~ 1,    
+    Num_fledglings > 0 ~ 0,     
+    TRUE ~ Num_fledglings       
+  ))
+
+bbdd_m_temp_per4_nf<-as.data.frame(bbdd_m_temp_per4_nf)
+
+mod_per4_nf_code<-brm(Num_fledglings_code ~ (average_temperature_per4)+(I(average_temperature_per4^2))+
+           (ld)+(num_neighbors)+(1|year)+(1|Mother),
+  family = bernoulli,
+  data = bbdd_m_temp_per4_nf,
+  chains = 4,
+  cores = 4,
+  iter = 10000,
+  warmup = 2000,
+  thin = 10)
+
+print(mod_per4_nf_code, digits=3)
+```
+
+#Number of fledlings - Non-zero part of the data
+```{r}
+#egg-laying
+bbdd_temp_laying_nf_temp_nfzero <- bbdd_temp_laying_nf_temp %>%
+  filter(Num_fledglings>0)
+  
+bbdd_temp_laying_nf_temp_nfzero<-as.data.frame(bbdd_temp_laying_nf_temp_nfzero)
+
+mod_lay_nf_code_zero<-brm(Num_fledglings ~ (average_temperature_laying)+(I(average_temperature_laying^2))+
+           (ld)+(num_neighbors)+(1|year)+(1|Mother),
+  family = poisson,
+  data = bbdd_temp_laying_nf_temp_nfzero,
+  chains = 4,
+  cores = 4,
+  iter = 10000,
+  warmup = 2000,
+  thin = 10)
+
+print(mod_lay_nf_code_zero, digits=3)
+
+#incubation
+bbdd_temp_per1_nf_temp_nfzero <- bbdd_temp_per1_nf_temp %>%
+  filter(Num_fledglings>0)
+  
+bbdd_temp_per1_nf_temp_nfzero<-as.data.frame(bbdd_temp_per1_nf_temp_nfzero)
+
+mod_per1_nf_code_zero<-brm(Num_fledglings ~ (average_temperature_per1)+(I(average_temperature_per1^2))+
+           (ld)+(num_neighbors)+(1|year)+(1|Mother),
+  family = poisson,
+  data = bbdd_temp_per1_nf_temp_nfzero,
+  chains = 4,
+  cores = 4,
+  iter = 10000,
+  warmup = 2000,
+  thin = 10)
+
+print(mod_per1_nf_code_zero, digits=3)
+
+#Hatching
+bbdd_m_temp_per2_nf_nfzero <- bbdd_m_temp_per2_nf %>%
+  filter(Num_fledglings>0)
+  
+bbdd_m_temp_per2_nf_nfzero<-as.data.frame(bbdd_m_temp_per2_nf_nfzero)
+
+mod_per2_nf_code_zero<-brm(Num_fledglings ~ (average_temperature_per2)+(I(average_temperature_per2^2))+
+           (ld)+(num_neighbors)+(1|year)+(1|Mother),
+  family = poisson,
+  data = bbdd_m_temp_per2_nf_nfzero,
+  chains = 4,
+  cores = 4,
+  iter = 10000,
+  warmup = 2000,
+  thin = 10)
+
+print(mod_per2_nf_code_zero, digits=3)
+
+#Nestling
+bbdd_m_temp_per3_nf_nfzero <- bbdd_m_temp_per3_nf %>%
+  filter(Num_fledglings>0)
+  
+bbdd_m_temp_per3_nf_nfzero<-as.data.frame(bbdd_m_temp_per3_nf_nfzero)
+
+mod_per3_nf_code_zero<-brm(Num_fledglings ~ (average_temperature_per3)+(I(average_temperature_per3^2))+
+           (ld)+(num_neighbors)+(1|year)+(1|Mother),
+  family = poisson,
+  data = bbdd_m_temp_per3_nf_nfzero,
+  chains = 4,
+  cores = 4,
+  iter = 10000,
+  warmup = 2000,
+  thin = 10)
+
+print(mod_per3_nf_code_zero, digits=3)
+
+#Fledgling
+bbdd_m_temp_per4_nf_nfzero <- bbdd_m_temp_per4_nf %>%
+  filter(Num_fledglings>0)
+  
+bbdd_m_temp_per4_nf_nfzero<-as.data.frame(bbdd_m_temp_per4_nf_nfzero)
+
+mod_per4_nf_code_zero3<-brm(Num_fledglings ~ (average_temperature_per4)+(I(average_temperature_per4^2))+
+           (ld)+(num_neighbors)+(1|year)+(1|Mother),
+  family = poisson,
+  data = bbdd_m_temp_per4_nf_nfzero,
+  chains = 4,
+  cores = 4,
+  iter = 10000,
+  warmup = 2000,
+  thin = 10)
+
+print(mod_per4_nf_code_zero3, digits=3)
+
+```
+
+
+How to get the data from the Bayesian models to calculate the median ± 95 CIs. I only show one example but the process is the same for all models.
+
+Even if the models do not take that long to run, I would recommend to save them once their finish
+
+```{r}
+#load your model
+
+#get the posterior estimates for the quadratic component of temperature 
+post_mod_lay_fs_1_q <- as.data.frame(as_draws(mod_lay_fs)[[1]]$b_Iaverage_temperature_layingE2)
+colnames(post_mod_lay_fs_18.061_q) <- "meant2"
+post_mod_lay_fs_2_q <- as.data.frame(as_draws(mod_lay_fs)[[2]]$b_Iaverage_temperature_layingE2)
+colnames(post_mod_lay_fs_18.062_q) <- "meant2"
+post_mod_lay_fs_3_q <- as.data.frame(as_draws(mod_lay_fs)[[3]]$b_Iaverage_temperature_layingE2)
+colnames(post_mod_lay_fs_18.063_q) <- "meant2"
+post_mod_lay_fs_4_q <- as.data.frame(as_draws(mod_lay_fs)[[4]]$b_Iaverage_temperature_layingE2)
+colnames(post_mod_lay_fs_18.064_q) <- "meant2"
+
+#join them in a sigle dataset 
+est_q_fs<-rbind(post_mod_lay_fs1_q, post_mod_lay_fs2_q)
+est_q_fs<-rbind(est_q_fs, post_mod_lay_fs3_q)
+est_q_fs<-rbind(est_q_fs, post_mod_lay_fs4_q)
+
+#get the posterior estimates for the linear component of temperature 
+post_mod_lay_fs_1_l <- as.data.frame(as_draws(mod_lay_fs)[[1]]$b_average_temperature_laying)
+colnames(post_mod_lay_fs_1_l) <- "meant_lin"
+post_mod_lay_fs_2_l <- as.data.frame(as_draws(mod_lay_fs)[[2]]$b_average_temperature_laying)
+colnames(post_mod_lay_fs_2_l) <- "meant_lin"
+post_mod_lay_fs_3_l <- as.data.frame(as_draws(mod_lay_fs)[[3]]$b_average_temperature_laying)
+colnames(post_mod_lay_fs_3_l) <- "meant_lin"
+post_mod_lay_fs_4_l <- as.data.frame(as_draws(mod_lay_fs)[[4]]$b_average_temperature_laying)
+colnames(post_mod_lay_fs_4_l) <- "meant_lin"
+
+est_l_fs<-rbind(post_mod_lay_fs_1_l, post_mod_lay_fs_2_l)
+est_l_fs<-rbind(est_l_fs, post_mod_lay_fs_3_l)
+est_l_fs<-rbind(est_l_fs, post_mod_lay_fs_4_l)
+
+#join the two datasets with the estimates
+join_lay_fs<-cbind(est_q_fs, est_l_fs)
+
+#here i compute the the vertex of the parabola to get the temperature at which the reproduction (in this case fledgling success) is higher throguh all values in the posterior distribution.
+join_lay_fs<-join_lay_fs %>% 
+  mutate(lay_temp_maxnf=((-meant_lin)/(2*meant2)))
+
+#get the mean, median and 95%CI 
+mean(join_lay_fs$lay_temp_maxnf) 
+median(join_lay_fs$lay_temp_maxnf) 
+HPDinterval(as.mcmc(join_lay_fs$lay_temp_maxnf)) 
+```
+
+
+
+

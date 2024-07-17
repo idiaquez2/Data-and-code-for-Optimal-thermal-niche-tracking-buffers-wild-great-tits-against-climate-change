@@ -1,0 +1,112 @@
+---
+title: "thermal tracking and mismatch caterpillars"
+author: "david lopez idiaquez"
+date: "2024-06-24"
+output: html_document
+---
+Code to replicate the analyses in: "Optimal thermal niche-tracking buffers wild great tits against climate change" by David López-Idiáquez*, Ella F Cole, Charlotte E Regan & Ben C Sheldon
+
+*contact:david.lopez-idiaquez[at]biology.ox.ac.uk
+
+          --------- Part 4: Thermal tracking caterpillars & mismatch  --------- 
+
+Load packages
+```{r pacakges}
+library(dplyr) #v. 1.1.3
+library(lmerTest) #v. 3.1-3
+library(lubridate) #v. 1.9.3
+library(tidyr) #v. 1.3.0
+```
+
+0. Load caterpillar half-fall data
+```{r}
+HF_data <- read.csv("Half_fall_data.csv")
+```
+
+1. Temporal trends in the caterpillar half-fall
+```{r}
+mod1<-lm(Half_fall_date~Year, data=HF_data)
+summary(mod1)
+anova(mod1)
+```
+
+2.Load climate data
+```{r}
+max_min<-read.csv("clim_data.csv")
+#compute mean temperature and create julday
+mean_temp<-max_min %>% 
+  mutate(tmean=(max+min)/2) %>%
+  group_by(year) %>% 
+  mutate(julday=row_number())
+```
+
+2.1 Thermal niche tracking caterpillars - compute mean temperatures with different interval lenghts
+```{r}
+#convert caterpillar date to 1 of January 
+HF_data2<-HF_data %>% 
+  mutate(Hf_2=Half_fall_date+90) %>% 
+  na.omit() %>% 
+  filter(Year>1964) %>% 
+  mutate(Hf2_r=round(Hf_2, digits = 0)) 
+
+## Function to calculate mean temperature and standard error for days over and under a date by year
+#7days (this function can be used to compute the mean temperatures for the other time intervals)
+calculate_mean_and_se <- function(year, julday) {
+  subset_temp <- mean_temp[mean_temp$year == year & mean_temp$julday >= (julday - 7) & mean_temp$julday <= (julday + 7), ]
+  mean_temperature <- mean(subset_temp$tmean, na.rm = TRUE)
+  se_temperature <- sd(subset_temp$tmean, na.rm = TRUE) / sqrt(nrow(subset_temp))
+  n_temperature <- nrow(subset_temp)
+  return(c(mean_temperature, se_temperature, n_temperature))
+}
+
+# Apply the function to each row in HF_data2
+result <- t(mapply(calculate_mean_and_se, HF_data2$Year, HF_data2$Hf2_r))
+colnames(result) <- c("mean_temperature", "se_temperature", "n_temperature")
+
+# Combine results with HF_data2
+HF_data2 <- cbind(HF_data2, result)
+
+#Test that the function is doing what is expected to do
+# 1965 - 148.4 - 11.62 (temperature obtained from the function)
+mean_temp_1965<-mean_temp %>% 
+  filter(year==1965) %>% 
+  filter(julday>=(148-7) & julday<=(148+7)) %>% 
+  mutate(meantemp=mean(tmean)) #mean temp manually 11.62
+
+#model temporal trends in mean temperature
+mod2<-lm(mean_temperature~Year, data=HF_data2)
+summary(mod2)
+anova(mod2)
+```
+
+Links between temperature in the relative periods and mismatch with the caterpillar peak
+```{r}
+#Load match data
+match<-read.csv("match.csv")
+```
+
+Models
+```{r}
+#egg-laying
+mod1<-lmer(abs(mismatch)~average_temperature_laying+I(average_temperature_laying^2)+(1|year)+(1|Mother), data=match)
+summary(mod1)
+anova(mod1, type=3)
+
+#Incubation
+mod2<-lmer(abs(mismatch)~average_temperature_per1+I(average_temperature_per1^2)+(1|year)+(1|Mother), data=match)
+summary(mod2)
+anova(mod2, type=3)
+
+#Hatching
+mod3<-lmer(abs(mismatch)~average_temperature_per2+I(average_temperature_per2^2)+(1|year)+(1|Mother), data=match)
+summary(mod3)
+anova(mod3, type=3)
+
+#Nestling
+mod4<-lmer(abs(mismatch)~average_temperature_per3+I(average_temperature_per3^2)+(1|year)+(1|Mother), data=match)
+summary(mod4)
+anova(mod4, type=3)
+```
+
+
+
