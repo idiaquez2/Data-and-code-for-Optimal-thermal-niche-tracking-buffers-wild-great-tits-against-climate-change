@@ -1,6 +1,6 @@
 Description of the data and file structure
 
-There are four data folders, one per each of the four sets of models ran in the manuscript.
+There are four data folders, one per each of the four sets of models ran in the manuscript with all information required to replicate the analyses in the manuscript: Optimal thermal niche-tracking buffers wild great tits against climate change, by David López-Idiáquez, Ella F Cole, Charlotte E Regan & Ben C Sheldon
 
 Folder 1: Temporal trends in the fixed intervals
 This folder contained the code and data required to run the temporal trends in the fixed interval. It contains two files:
